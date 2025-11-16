@@ -21,25 +21,18 @@ func main() {
     //Logica de interconexion
     var operclite fyne.App = app.New() //Variable de la aplicacion
     clearScreen()
-    //ptoRemoto := "1610"
-    //ipRemota := "10.1.6.197"
-    fmt.Print("Ingrese el puerto remoto por el que va a ingresar: ")
-    portReader := bufio.NewReader(os.Stdin)
-	ptoRemoto, err := portReader.ReadString('\n')
-    if err != nil {
-        fmt.Println("Error de lectura", err)
-        os.Exit(0)
+    if (len(os.Args) < 4) {
+        fmt.Println("Parametros: operclite.exe <ip> <port> <time interval for reports>")
+        return
     }
-    fmt.Print("Ingrese la IP del socket servidor (OJO, RECUERDE ESTAR BAJO LA MISMA RED): ")
-    ipReader := bufio.NewReader(os.Stdin)
-	ipRemota, err := ipReader.ReadString('\n')
-    if err != nil {
-        fmt.Println("Error de lectura", err)
-        os.Exit(0)
-    }
+    ipRemota := os.Args[1]
+    ptoRemoto := os.Args[2]
+    setReportInterval := os.Args[3]
+
+    //Usando TrimSpace para evitar bytes extras
     dirTCP, _ := net.ResolveTCPAddr("tcp4", strings.TrimSpace(ipRemota)+":"+strings.TrimSpace(ptoRemoto))
-    var serverSocket net.Conn
-    serverSocket, _ = net.DialTCP("tcp4", nil, dirTCP)
+    //var serverSocket net.Conn
+    serverSocket, _ := net.DialTCP("tcp4", nil, dirTCP)
 	//Recibir mensaje por defecto de el servidor
 	if recInvalidKey(serverSocket) == "Unauthorized\r\n" { //Conexion invalida
         gui.ErrorWindow(operclite)
@@ -49,6 +42,8 @@ func main() {
     fmt.Println("\n--------------------------------------")
     fmt.Println("*           Operclite Client           *")
     fmt.Println("----------------------------------------")
+    sendCredentialMsg(serverSocket, "Time: " + setReportInterval + "\n")
+    fmt.Println("Intervalo enviado")
     //Proceso de login == CLI para poder implementar mejor seguridad a la hora de escribir la contraseña
 	for {
 		//var usercli string
@@ -89,14 +84,14 @@ func main() {
         <-quitC
         serverSocket.Close()
         fyne.Do(func() {
+            gui.ByeWindow(operclite)
             (*mainWin).Close()
-            fmt.Println("Bye :)")
+            //fmt.Println("Bye :)")
             //os.Exit(0)
         })
     }()
     (*mainWin).SetIcon(resourceIconPng)
     (*mainWin).ShowAndRun() //Inicia la ventana principal
-    gui.ByeWindow(operclite)
     //clearScreen()
     /*fmt.Println("\n--------------------------------------------")
     fmt.Println("*  Gracias por usar el cliente de Operclite  *")

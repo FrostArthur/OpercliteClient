@@ -156,7 +156,7 @@ func ErrorWindow(app fyne.App) {
 //Ejecuta la ventana de despedida
 func ByeWindow(app fyne.App) { 
     byeWin := app.NewWindow("Operclite Closed")
-    byeLabel := widget.NewLabel("")
+    byeLabel := widget.NewLabel("Gracias por usar el cliente Operclite :)")
     closeBTN := widget.NewButton("Cerrar", func() {
         byeWin.Close()
     })
@@ -164,5 +164,5 @@ func ByeWindow(app fyne.App) {
         byeLabel,
         closeBTN,
     ))
-    byeWin.ShowAndRun()
+    byeWin.Show()
 }
