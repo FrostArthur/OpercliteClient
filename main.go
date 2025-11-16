@@ -19,19 +19,16 @@ import (
 
 func main() {
     //Logica de interconexion
-    var operclite fyne.App = app.New() //Variable de la aplicacion
+    var operclite fyne.App = app.New()
     clearScreen()
     if (len(os.Args) < 4) {
         fmt.Println("Parametros: operclite.exe <ip> <port> <time interval for reports>")
         return
     }
-    ipRemota := os.Args[1]
-    ptoRemoto := os.Args[2]
-    setReportInterval := os.Args[3]
-
-    //Usando TrimSpace para evitar bytes extras
-    dirTCP, _ := net.ResolveTCPAddr("tcp4", strings.TrimSpace(ipRemota)+":"+strings.TrimSpace(ptoRemoto))
-    //var serverSocket net.Conn
+    ipRemota := strings.TrimSpace(os.Args[1])
+    ptoRemoto := strings.TrimSpace(os.Args[2])
+    setReportInterval := strings.TrimSpace(os.Args[3])
+    dirTCP, _ := net.ResolveTCPAddr("tcp4", ipRemota+":"+ptoRemoto)
     serverSocket, _ := net.DialTCP("tcp4", nil, dirTCP)
 	//Recibir mensaje por defecto de el servidor
 	if recInvalidKey(serverSocket) == "Unauthorized\r\n" { //Conexion invalida
@@ -45,33 +42,9 @@ func main() {
     sendCredentialMsg(serverSocket, "Time: " + setReportInterval + "\n")
     fmt.Println("Intervalo enviado")
     //Proceso de login == CLI para poder implementar mejor seguridad a la hora de escribir la contraseña
-	for {
-		//var usercli string
-	    recDefaultMsg(serverSocket) //Recibe mensaje de ingresar usuario
-		fmt.Print("Ingrese el usuario: ")
-		reader := bufio.NewReader(os.Stdin)
-        usercli, _ := reader.ReadString('\n')
-        sendCredentialMsg(serverSocket, usercli) //Envia la credencial
-
-		recDefaultMsg(serverSocket) //Recibe mensaje de ingresar contraseña
-		fmt.Print("Ingrese la contraseña: ")
-		hPasswd, err := readPassword()
-	    if err != nil {
-		    fmt.Println("Error:", err)
-		    os.Exit(1)
-	    }
-		sendCredentialMsg(serverSocket, hPasswd) //Envia la credencial
-		tempKey := recInvalidKey(serverSocket)
-		if tempKey == "Login OK\r\n" {
-            fmt.Println("Login correcto, iniciando comunicacion...")
-		    break
-		} else if tempKey == "Locked\r\n" {
-            clearScreen()
-			serverSocket.Close()
-			gui.ErrorWindow(operclite)
-			os.Exit(0) 
-	    }
-	}
+	if !loginProcess(serverSocket, operclite) {
+        return
+    }
     clearScreen()
     mainWin, gui_access, report_access := gui.StartMainWindow(operclite)
     quitC := make(chan bool)
@@ -86,16 +59,45 @@ func main() {
         fyne.Do(func() {
             gui.ByeWindow(operclite)
             (*mainWin).Close()
-            //fmt.Println("Bye :)")
-            //os.Exit(0)
         })
     }()
     (*mainWin).SetIcon(resourceIconPng)
     (*mainWin).ShowAndRun() //Inicia la ventana principal
-    //clearScreen()
-    /*fmt.Println("\n--------------------------------------------")
-    fmt.Println("*  Gracias por usar el cliente de Operclite  *")
-    fmt.Println("----------------------------------------------")*/
+}
+
+func loginProcess(socket net.Conn, app fyne.App) bool {
+    for {
+        recDefaultMsg(socket) //Recibe mensaje de ingresar usuario
+		fmt.Print("Ingrese el usuario: ")
+		reader := bufio.NewReader(os.Stdin)
+        usercli, _ := reader.ReadString('\n')
+        sendCredentialMsg(socket, usercli) //Envia la credencial
+
+		recDefaultMsg(socket) //Recibe mensaje de ingresar contraseña
+		fmt.Print("Ingrese la contraseña: ")
+		hPasswd, err := readPassword()
+	    if err != nil {
+		    fmt.Println("Error:", err)
+		    os.Exit(1)
+	    }
+		sendCredentialMsg(socket, hPasswd) //Envia la credencial
+		tempKey := recInvalidKey(socket)
+        switch(tempKey) {
+        case "Incorrect\r\n": //Ingreso mal las credenciales, vuelve a intentarlo hasta que el servidor suelte un Locked
+            continue
+        case "Login OK\r\n": //Rompe el proceso de login para seguir con la intercomunicacion normal
+            fmt.Println("Login correcto, iniciando comunicacion...")
+            return true
+        case "Locked\r\n": //Ya esta en blacklist en resumen
+            clearScreen()
+            socket.Close()
+            gui.ErrorWindow(app)
+            return false 
+        default: //Ni idea, algo ocurrio en el programa del servidor JAJSAJSJAJS
+            fmt.Println("????")
+            return false
+        }
+    }
 }
 
 //----------Leer las contraseñas de manera correcta para Windows-------------//
@@ -165,19 +167,19 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
             continue
         }
         fyne.Do(func() {
-            if strings.HasPrefix(msg, "Report: ") {
-                cpu, ram, disk, ram_label, process_label, err := mod_gui.ComponentValues(strings.TrimPrefix(msg, "Report: "))
-                if err != nil {
-                    fmt.Println(err)
-                    return
-                }
+            var repPrefix, procPrefix bool
+            msg, repPrefix = strings.CutPrefix(msg, "Report: ")
+            msg, procPrefix = strings.CutPrefix(msg, "Process")
+            switch {
+            case repPrefix: //Estamos recibiendo un reporte
+                cpu, ram, disk, ram_label, process_label, _ := mod_gui.ComponentValues(strings.TrimSpace(msg))
                 reports.Cpu_Bar.SetValue(cpu/100.0)
                 reports.Ram_Bar.SetValue(ram/100.0)
                 reports.Disk_Bar.SetValue(disk/100.0)
                 reports.Ram_Label.SetText(ram_label + " (Memoria usada / Memoria Total) ")
-                reports.Process_Label.SetText("Cantidad de procesos en ejecución: " + process_label) 
-            } else if strings.HasPrefix(msg, "Process") {
-                cleanMsg := strings.TrimSpace(strings.TrimPrefix(msg, "Process"))
+                reports.Process_Label.SetText("Cantidad de procesos en ejecución: " + process_label)
+            case procPrefix: //Estamos recibiendo procesos
+                cleanMsg := strings.TrimSpace(msg)
                 if procIndex < len(reports.TopProcesses) {
                     reports.TopProcesses[procIndex].SetText(cleanMsg)
                     procIndex++
@@ -185,9 +187,9 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
                 if procIndex >= len(reports.TopProcesses) {
                     procIndex = 0
                 }
-            } else {
+            default:
                 guiC.MsgBox.Add(widget.NewLabel("Server: " + strings.TrimSpace(msg))) //Añade una label cada que se llame a la función
-            }   
+            }
         })
     }
 }
