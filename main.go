@@ -37,7 +37,7 @@ func main() {
 		os.Exit(0)
 	}
     fmt.Println("\n--------------------------------------")
-    fmt.Println("*           Operclite Client           *")
+    fmt.Println("*        Operclite Client Login        *")
     fmt.Println("----------------------------------------")
     sendCredentialMsg(serverSocket, "Time: " + setReportInterval + "\n")
     fmt.Println("Intervalo enviado")
