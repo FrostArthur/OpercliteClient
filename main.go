@@ -14,7 +14,7 @@ import (
     "operclite-1/mod_gui"
     "fyne.io/fyne/v2"
     "fyne.io/fyne/v2/app"
-    "fyne.io/fyne/v2/widget"
+    //"fyne.io/fyne/v2/widget"
 )
 
 func main() {
@@ -137,7 +137,7 @@ func envMsgMain(socket net.Conn, channel chan bool, gui *gui.GUIComponents) {
     env := bufio.NewWriter(socket)
     env.WriteString(msgEnv + "\n")
     env.Flush()
-    gui.MsgBox.Add(widget.NewLabel("Cliente: " + gui.UserEntry.Text))
+    gui.AddMessage("Cliente: " + gui.UserEntry.Text)
     gui.UserEntry.SetText("")
     if msgEnv == "bye" {
         channel <- true
@@ -188,7 +188,7 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
                     procIndex = 0
                 }
             default:
-                guiC.MsgBox.Add(widget.NewLabel("Server: " + strings.TrimSpace(msg))) //Añade una label cada que se llame a la función
+                guiC.AddMessage("Server: " + strings.TrimSpace(msg)) //Añade una label cada que se llame a la función
             }
         })
     }
