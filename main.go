@@ -30,7 +30,7 @@ func main() {
     setReportInterval := strings.TrimSpace(os.Args[3])
     dirTCP, _ := net.ResolveTCPAddr("tcp4", ipRemota+":"+ptoRemoto)
     serverSocket, _ := net.DialTCP("tcp4", nil, dirTCP)
-	//Recibir mensaje por defecto de el servidor
+	//Recibir mensaje por defecto de el servidor para saber si la conexión es correcta o no
 	if recInvalidKey(serverSocket) == "Unauthorized\r\n" { //Conexion invalida
         gui.ErrorWindow(operclite)
 		serverSocket.Close()
@@ -41,7 +41,6 @@ func main() {
     fmt.Println("----------------------------------------")
     sendCredentialMsg(serverSocket, "Time: " + setReportInterval + "\n")
     fmt.Println("Intervalo enviado")
-    //Proceso de login == CLI para poder implementar mejor seguridad a la hora de escribir la contraseña
 	if !loginProcess(serverSocket, operclite) {
         return
     }
@@ -62,9 +61,11 @@ func main() {
         })
     }()
     (*mainWin).SetIcon(resourceIconPng)
-    (*mainWin).ShowAndRun() //Inicia la ventana principal
+    (*mainWin).ShowAndRun() 
 }
 
+/*Proceso de login, se recibe por parametro el socket y la app con el fin de invocar una ventana de error en caso
+de que el cliente quede bloqueado  (esto sucedera si el el tiempo exponencial llega a superar los 3 minutos)*/
 func loginProcess(socket net.Conn, app fyne.App) bool {
     for {
         recDefaultMsg(socket) //Recibe mensaje de ingresar usuario
@@ -88,13 +89,12 @@ func loginProcess(socket net.Conn, app fyne.App) bool {
         case "Login OK\r\n": //Rompe el proceso de login para seguir con la intercomunicacion normal
             fmt.Println("Login correcto, iniciando comunicacion...")
             return true
-        case "Locked\r\n": //Ya esta en blacklist en resumen
+        case "Locked\r\n": //Bloqueado, se llevara a blacklist
             clearScreen()
             socket.Close()
             gui.ErrorWindow(app)
             return false 
-        default: //Ni idea, algo ocurrio en el programa del servidor JAJSAJSJAJS
-            fmt.Println("????")
+        default:
             return false
         }
     }
@@ -159,10 +159,10 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
             channel <- true
             return
         }
-        if strings.TrimSpace(msg) == "bye" {
+        /*if strings.TrimSpace(msg) == "bye" {
             channel <- true
             return
-        }
+        }*/
         if msg == "\n" || msg == "" {
             continue
         }
@@ -194,8 +194,7 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
     }
 }
 
-//--------Llave de comunicación entre los sockets-----------//
-
+//--------Llaves de comunicación entre los sockets-----------//
 func recInvalidKey(socket net.Conn) string {
 	msg, _ := bufio.NewReader(socket).ReadString('\n')
 	fmt.Println("Server -->", msg)
@@ -203,7 +202,6 @@ func recInvalidKey(socket net.Conn) string {
 }
 
 //--------Funciones bloqueantes para el flujo del login------//
-
 func recDefaultMsg(socket net.Conn) {
 	msg, _ := bufio.NewReader(socket).ReadString('\n')
 	fmt.Println("Server -->", msg)
@@ -216,7 +214,6 @@ func sendCredentialMsg(socket net.Conn, credential string) {
 } 
 
 //------Limpiar pantalla Windows-------//
-
 func clearScreen() {
     shell := exec.Command("cmd", "/c", "cls")
     shell.Stdout = os.Stdout
