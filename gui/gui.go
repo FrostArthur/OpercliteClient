@@ -1,7 +1,8 @@
-//Aqui unicamente maneja el layout de la gui del programa, no edita realmente
+// Aqui unicamente maneja el layout de la gui del programa, no edita realmente
 package gui
 
 import (
+	"time"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -11,6 +12,8 @@ type GUIComponents struct {
     SendButton *widget.Button //Necesario para que al accionar se pueda enviar el mensaje al socket servidor
     MsgBox *fyne.Container //Contenedor de la caja de mensajes, necesario para agregar labels de los mensajes que recibe el cliente por parte del servidor
     UserEntry *widget.Entry //Input del usuario en el sentido de mensajes
+    ScrollOfBox *container.Scroll
+    autoScroll bool
 }
 
 type ReportComponents struct {
@@ -99,6 +102,7 @@ func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportCompone
     scroll_of_box := container.NewVScroll(msgBox)
     scroll_of_box.SetMinSize(fyne.NewSize(612, 612))
     
+    
     //Caja de entrada de mensajes
     userEntry := widget.NewEntry()
     userEntry.SetPlaceHolder("Escribe tu mensaje aquí...") 
@@ -124,6 +128,15 @@ func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportCompone
         SendButton: sendButton,
         MsgBox: msgBox,
         UserEntry: userEntry,
+        ScrollOfBox: scroll_of_box,
+        autoScroll: true,
+    }
+
+    scroll_of_box.OnScrolled = func(pos fyne.Position) {
+        contentHeight := msgBox.MinSize().Height
+        visibleHeight := scroll_of_box.Size().Height
+        scrollPos := pos.Y
+        gui.autoScroll = (scrollPos + visibleHeight) >= (contentHeight - 50)
     }
 
     //Estructura de los componentes internos de la caja de reportes (5 procesos de mayor consumo, consumo general del sistema)
@@ -137,6 +150,18 @@ func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportCompone
     }
 
     return &mainWin, gui, report
+}
+
+//Función para añadir mensajes a la caja de mensajes aplicando un scroll automático
+func (gui *GUIComponents) AddMessage(msg string) {
+    label := widget.NewLabel(msg)
+    gui.MsgBox.Add(label)
+    gui.MsgBox.Refresh()
+    if gui.autoScroll {
+        time.AfterFunc(10 * time.Millisecond, func() {
+            fyne.Do(func() {gui.ScrollOfBox.ScrollToBottom()})
+        })
+    }
 }
 
  //Ejecuta la ventana de error
