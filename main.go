@@ -14,7 +14,7 @@ import (
     "operclite-1/mod_gui"
     "fyne.io/fyne/v2"
     "fyne.io/fyne/v2/app"
-    //"fyne.io/fyne/v2/widget"
+    "strconv"
 )
 
 func main() {
@@ -83,17 +83,29 @@ func loginProcess(socket net.Conn, app fyne.App) bool {
 	    }
 		sendCredentialMsg(socket, hPasswd) //Envia la credencial
 		tempKey := recInvalidKey(socket)
+        if strings.HasPrefix(tempKey, "Freeze: ") {
+            counter := strings.TrimSpace(strings.TrimPrefix(tempKey, "Freeze: "))
+            //Transformamos a entero
+            counterInt, err := strconv.Atoi(counter)
+            if err != nil {
+                fmt.Println("Error al transformar en entero: ", err)
+                return false
+            }
+            fmt.Println("Muchos intentos por parte del cliente, poner en espera durante ", counterInt)
+            time.Sleep(time.Duration(counterInt) * time.Second)
+            continue
+        }
         switch(tempKey) {
-        case "Incorrect\r\n": //Ingreso mal las credenciales, vuelve a intentarlo hasta que el servidor suelte un Locked
+        case "Retry\r\n": //Ingreso mal las credenciales, vuelve a intentarlo hasta que el servidor suelte un Freeze o un Locked
             continue
         case "Login OK\r\n": //Rompe el proceso de login para seguir con la intercomunicacion normal
             fmt.Println("Login correcto, iniciando comunicacion...")
             return true
-        case "Locked\r\n": //Bloqueado, se llevara a blacklist
+        case "Locked\r\n": //Bloqueado
             clearScreen()
             socket.Close()
             gui.ErrorWindow(app)
-            return false 
+            return false
         default:
             return false
         }
@@ -101,7 +113,6 @@ func loginProcess(socket net.Conn, app fyne.App) bool {
 }
 
 //----------Leer las contraseñas de manera correcta para Windows-------------//
-
 func readPassword() (string, error) {
 	h := windows.Handle(os.Stdin.Fd())
 	var oldMode uint32
@@ -159,11 +170,7 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
             channel <- true
             return
         }
-        /*if strings.TrimSpace(msg) == "bye" {
-            channel <- true
-            return
-        }*/
-        if msg == "\n" || msg == "" {
+        if msg == "\r\n" || msg == "" {
             continue
         }
         fyne.Do(func() {
