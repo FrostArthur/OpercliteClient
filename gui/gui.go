@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+//Referencias a objetos que se requieren editar de la GUI
 type GUIComponents struct {
     SendButton *widget.Button //Necesario para que al accionar se pueda enviar el mensaje al socket servidor
     MsgBox *fyne.Container //Contenedor de la caja de mensajes, necesario para agregar labels de los mensajes que recibe el cliente por parte del servidor
@@ -16,6 +17,7 @@ type GUIComponents struct {
     autoScroll bool
 }
 
+//Referencias a labels y barras de progreso que requieren editarse para los reportes
 type ReportComponents struct {
     //Labels
     Ram_Label *widget.Label
@@ -27,7 +29,8 @@ type ReportComponents struct {
     Disk_Bar *widget.ProgressBar
 }
 
-func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportComponents) { //Layout de la ventana principal
+//Layout de la ventana principal
+func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportComponents) { 
     mainWin := app.NewWindow("Operclite App")
     topBar := widget.NewLabel("Operclite Beta - Escribe 'exec: <tu comando>' si quieres ejecutar un comando - Escribe 'bye' en el panel de comunicación si quieres terminar la conexión")
     topBar.Alignment = fyne.TextAlignCenter
@@ -102,7 +105,6 @@ func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportCompone
     scroll_of_box := container.NewVScroll(msgBox)
     scroll_of_box.SetMinSize(fyne.NewSize(612, 612))
     
-    
     //Caja de entrada de mensajes
     userEntry := widget.NewEntry()
     userEntry.SetPlaceHolder("Escribe tu mensaje aquí...") 
@@ -131,7 +133,8 @@ func StartMainWindow(app fyne.App) (*fyne.Window, *GUIComponents, *ReportCompone
         ScrollOfBox: scroll_of_box,
         autoScroll: true,
     }
-
+    
+    //Funcion que controla el scroll automatico
     scroll_of_box.OnScrolled = func(pos fyne.Position) {
         contentHeight := msgBox.MinSize().Height
         visibleHeight := scroll_of_box.Size().Height
