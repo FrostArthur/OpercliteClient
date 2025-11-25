@@ -18,23 +18,19 @@ import (
 )
 
 func main() {
-	//Logica de interconexion
 	var operclite fyne.App = app.New()
 	clearScreen()
 	if len(os.Args) < 4 {
 		fmt.Println("Parametros: operclite.exe <ip> <port> <time interval for reports>")
 		return
 	}
-    //Guardamos el intervalo de tiempo para enviarlo despues
 	setReportInterval := strings.TrimSpace(os.Args[3])
-    //Fase de conexion, serverSocket es el socket servidor de linux
     serverSocket, err := connectionPhase(strings.TrimSpace(os.Args[1]), strings.TrimSpace(os.Args[2]))
     if err != nil {
         fmt.Println(err)
         os.Exit(1)
     }
-	//Recibir mensaje por defecto de el servidor para saber si la conexión es correcta o no
-	if strings.TrimSpace(receiveKey(serverSocket)) == "Unauthorized" { //Conexion invalida
+	if strings.TrimSpace(receiveKey(serverSocket)) == "Unauthorized" {
 		gui.ErrorWindow(operclite)
 		serverSocket.Close()
 		os.Exit(0)
@@ -54,7 +50,6 @@ func main() {
 	clearScreen()
 	mainWin, gui_access, report_access := gui.StartMainWindow(operclite)
 	quitC := make(chan bool)
-	//Logica principal de comunicación
 	go recMsgMain(serverSocket, quitC, gui_access, report_access)
 	gui_access.SendButton.OnTapped = func() {
 		envMsgMain(serverSocket, quitC, gui_access)
@@ -72,7 +67,6 @@ func main() {
 	(*mainWin).ShowAndRun()
 }
 
-//Fase de conexion, se retorna la variable Conn cuando la conexion TCP se logra
 func connectionPhase(remoteIp string, remotePort string) (net.Conn, error) {
     dirTCP, errAddr := net.ResolveTCPAddr("tcp4", remoteIp + ":" + remotePort)
     if errAddr != nil {
@@ -87,24 +81,22 @@ func connectionPhase(remoteIp string, remotePort string) (net.Conn, error) {
     return serverSocket, nil
 }
 
-/*Proceso de login, se recibe por parametro el socket y la app con el fin de invocar una ventana de error en caso
-de que el cliente quede bloqueado  (esto sucedera si el los intentos llegan a superar el 6)*/
 func loginProcess(socket net.Conn) bool {
 	for {
-		recDefaultMsg(socket) //Recibe mensaje de ingresar usuario
+		recDefaultMsg(socket)
 		fmt.Print("Ingrese el usuario: ")
 		reader := bufio.NewReader(os.Stdin)
 		usercli, _ := reader.ReadString('\n')
-		sendCredentialMsg(socket, usercli) //Envia la credencial
+		sendCredentialMsg(socket, usercli)
 
-		recDefaultMsg(socket) //Recibe mensaje de ingresar contraseña
+		recDefaultMsg(socket)
 		fmt.Print("Ingrese la contraseña: ")
 		hPasswd, err := readPassword()
 		if err != nil {
 			fmt.Println("Error:", err)
 			os.Exit(2)
 		}
-		sendCredentialMsg(socket, hPasswd) //Envia la credencial
+		sendCredentialMsg(socket, hPasswd)
 		tempKey := strings.TrimSpace(receiveKey(socket))
         str_counter, prefixFound := strings.CutPrefix(strings.TrimSpace(tempKey), "Freeze: ")
         if prefixFound {
@@ -124,7 +116,6 @@ func loginProcess(socket net.Conn) bool {
 	}
 }
 
-// ----------Leer las contraseñas de manera correcta para Windows-------------//
 func readPassword() (string, error) {
 	h := windows.Handle(os.Stdin.Fd())
 	var oldMode uint32
@@ -150,7 +141,6 @@ func readPassword() (string, error) {
 	return hPasswd + "\n", nil
 }
 
-//--------------------Funciones de comunicacion de manera concurrente (Incluye la GUI)--------------------//
 func envMsgMain(socket net.Conn, channel chan bool, gui *gui.GUIComponents) {
 	msgEnv := gui.UserEntry.Text
 	if strings.TrimSpace(msgEnv) == "" {
@@ -190,20 +180,19 @@ func recMsgMain(socket net.Conn, channel chan bool, guiC *gui.GUIComponents, rep
 	}
 }
 
-//Actualizar la GUI
 func updateGUI(procIndex *int, msg string, reports *gui.ReportComponents, guiC *gui.GUIComponents) {
 	var repPrefix, procPrefix bool
 	msg, repPrefix = strings.CutPrefix(msg, "Report: ")
 	msg, procPrefix = strings.CutPrefix(msg, "Process")
 	switch {
-	case repPrefix: //Estamos recibiendo un reporte
+	case repPrefix:
 		cpu, ram, disk, ram_label, process_label, _ := mod_gui.ComponentValues(strings.TrimSpace(msg))
 		reports.Cpu_Bar.SetValue(cpu / 100.0)
 		reports.Ram_Bar.SetValue(ram / 100.0)
 		reports.Disk_Bar.SetValue(disk / 100.0)
 		reports.Ram_Label.SetText(ram_label + " (Memoria usada / Memoria Total) ")
 		reports.Process_Label.SetText("Cantidad de procesos en ejecución: " + process_label)
-	case procPrefix: //Estamos recibiendo procesos
+	case procPrefix:
 		cleanMsg := strings.TrimSpace(msg)
 		if *procIndex < len(reports.TopProcesses) {
 			reports.TopProcesses[*procIndex].SetText(cleanMsg)
@@ -213,20 +202,16 @@ func updateGUI(procIndex *int, msg string, reports *gui.ReportComponents, guiC *
 			*procIndex = 0
 		}
 	default:
-		guiC.AddMessage("Server: " + strings.TrimSpace(msg)) //Añade una label cada que se llame a la función
+		guiC.AddMessage("Server: " + strings.TrimSpace(msg))
 	}
 }
-//----------------------------------------------------------------------------------------------------------//
 
-// --------Llaves de comunicación entre los sockets-----------//
 func receiveKey(socket net.Conn) string {
 	msg, _ := bufio.NewReader(socket).ReadString('\n')
 	fmt.Println("Server -->", msg)
 	return msg
 }
-//------------------------------------------------------------//
 
-// --------Funciones bloqueantes para el flujo del login------//
 func recDefaultMsg(socket net.Conn) {
 	msg, _ := bufio.NewReader(socket).ReadString('\n')
 	fmt.Println("Server -->", msg)
@@ -237,9 +222,7 @@ func sendCredentialMsg(socket net.Conn, credential string) {
 	env.WriteString(credential)
 	env.Flush()
 }
-//-------------------------------------------------------------//
 
-// ------Limpiar pantalla Windows-------//
 func clearScreen() {
 	shell := exec.Command("cmd", "/c", "cls")
 	shell.Stdout = os.Stdout
